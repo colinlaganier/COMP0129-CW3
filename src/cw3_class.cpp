@@ -7,7 +7,20 @@ solution is contained within the cw3_team_<your_team_number> package */
 
 ///////////////////////////////////////////////////////////////////////////////
 
-cw3::cw3(ros::NodeHandle nh)
+cw3::cw3(ros::NodeHandle nh):
+g_cloud_ptr (new PointC), // input point cloud
+  g_cloud_filtered (new PointC), // filtered point cloud
+  g_cloud_filtered2 (new PointC), // filtered point cloud
+  g_cloud_plane (new PointC), // plane point cloud
+  g_cloud_cylinder (new PointC), // cylinder point cloud
+  g_tree_ptr (new pcl::search::KdTree<PointT> ()), // KdTree
+  g_cloud_normals (new pcl::PointCloud<pcl::Normal>), // segmentation
+  g_cloud_normals2 (new pcl::PointCloud<pcl::Normal>), // segmentation
+  g_inliers_plane (new pcl::PointIndices), // plane seg
+  g_inliers_cylinder (new pcl::PointIndices), // cylidenr seg
+  g_coeff_plane (new pcl::ModelCoefficients), // plane coeff
+  g_coeff_cylinder (new pcl::ModelCoefficients), // cylinder coeff
+  cloud_filtered (new pcl::PointCloud<PointT>)
 {
   /* class constructor */
 
@@ -110,6 +123,74 @@ cw3::t3_callback(cw3_world_spawner::Task3Service::Request &request,
   return true;
 }
 
+
+
+
+
+
+void
+cw3::PointCloudCallback
+  (const sensor_msgs::PointCloud2ConstPtr &cloud_input_msg)
+{
+  // Extract inout point cloud info
+  g_input_pc_frame_id_ = cloud_input_msg->header.frame_id;
+    
+  // Convert to PCL data type
+  pcl_conversions::toPCL (*cloud_input_msg, g_pcl_pc);
+  pcl::fromPCLPointCloud2 (g_pcl_pc, *g_cloud_ptr);
+
+   
+  //pcl::PointCloud<PointT> cloud = *cloud.get();
+
+
+  
+  pass.setInputCloud (g_cloud_ptr);
+  pass.setFilterFieldName ("z");
+  pass.setFilterLimits (0.49, 0.51);
+    //pass.setFilterLimitsNegative (true);
+    
+  pass.filter (*cloud_filtered);
+  // TODO: test if filter is empty
+  g_ne.setInputCloud (cloud_filtered);
+  g_ne.setSearchMethod (g_tree_ptr);
+  g_ne.setKSearch (g_k_nn);
+  g_ne.compute (*g_cloud_normals);
+
+  // Perform the filtering
+  //applyVX (g_cloud_ptr, g_cloud_filtered);
+  //applyPT (g_cloud_ptr, g_cloud_filtered);
+    
+  // Publish the data
+  //ROS_INFO ("Publishing Filtered Cloud 2");
+  pubFilteredPCMsg (g_pub_cloud, *cloud_filtered);
+  
+  return;
+}
+////////////////////////////////////////////////////////////////////////////////
+void
+cw3::applyVX (PointCPtr &in_cloud_ptr,
+                      PointCPtr &out_cloud_ptr)
+{
+  g_vx.setInputCloud (in_cloud_ptr);
+  g_vx.setLeafSize (g_vg_leaf_sz, g_vg_leaf_sz, g_vg_leaf_sz);
+  g_vx.filter (*out_cloud_ptr);
+  
+  return;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void
+cw3::applyPT (PointCPtr &in_cloud_ptr,
+                      PointCPtr &out_cloud_ptr)
+{
+  g_pt.setInputCloud (in_cloud_ptr);
+  g_pt.setFilterFieldName ("y");
+  g_pt.setFilterLimits (g_pt_thrs_min, g_pt_thrs_max);
+  g_pt.filter (*out_cloud_ptr);
+  
+  return;
+}
+
 bool
 cw3::PickAndPlace(geometry_msgs::PointStamped object_point, geometry_msgs::PointStamped object_goal, std::string shape_type, double cube_size){
   geometry_msgs::Pose inspection_pose = Point2Pose(object_point.point);
@@ -121,17 +202,17 @@ cw3::PickAndPlace(geometry_msgs::PointStamped object_point, geometry_msgs::Point
   object_point.point.z = 0.15; 
   
   object_goal.point.z = drop_height_;
-  if(shape_type == "nought"){
+   if(shape_type == "nought"){
     object_point.point.x += naught_pick_grid_x_offset_ * cube_size;
     object_point.point.y += naught_pick_grid_y_offset_ * cube_size;
-    object_goal.point.x -= (naught_pick_grid_x_offset_ * cube_size)/2;
-    object_goal.point.y -= (naught_pick_grid_y_offset_ * cube_size)/2;
+    object_goal.point.x += naught_pick_grid_x_offset_ * cube_size;
+    object_goal.point.y += naught_pick_grid_y_offset_ * cube_size;
   }
   else if(shape_type == "cross"){
     object_point.point.x += cross_pick_grid_x_offset_ * cube_size;
     object_point.point.y += cross_pick_grid_y_offset_ * cube_size;
-    object_goal.point.x -= (cross_pick_grid_x_offset_ * cube_size)/2;
-    object_goal.point.y -= (cross_pick_grid_y_offset_ * cube_size)/2;
+    object_goal.point.x += cross_pick_grid_x_offset_ * cube_size;
+    object_goal.point.y += cross_pick_grid_y_offset_ * cube_size;
   }
   else{
     return false;

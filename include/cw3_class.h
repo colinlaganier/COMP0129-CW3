@@ -14,7 +14,26 @@ solution is contained within the cw3_team_<your_team_number> package */
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
+// PCL specific includes
+#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/centroid.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/filters/passthrough.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/ModelCoefficients.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/io/pcd_io.h>
 
+typedef pcl::PointXYZRGBA PointT;
+typedef pcl::PointCloud<PointT> PointC;
+typedef PointC::Ptr PointCPtr;
 
 // include services from the spawner package - we will be responding to these
 #include "cw3_world_spawner/Task1Service.h"
@@ -34,11 +53,94 @@ public:
   double camera_offset_;
   double gripper_open_ = 80e-3;
   double gripper_closed_ = 0.0;
-  int cross_pick_grid_y_offset_;
-  int cross_pick_grid_x_offset_;
-  int naught_pick_grid_x_offset_;
-  int naught_pick_grid_y_offset_;
+  double cross_pick_grid_y_offset_;
+  double cross_pick_grid_x_offset_;
+  double naught_pick_grid_x_offset_;
+  double naught_pick_grid_y_offset_;
   double drop_height_;
+
+
+   ros::Subscriber cloud_sub_;
+
+
+ 
+   /** \brief The input point cloud frame id. */
+  std::string g_input_pc_frame_id_;
+
+  /** \brief ROS publishers. */
+  ros::Publisher g_pub_cloud;
+
+  /** \brief ROS pose publishers. */
+  ros::Publisher g_pub_pose;
+ /** \brief cw1Q1: TF listener definition. */
+  tf::TransformListener g_listener_;
+
+  /** \brief Voxel Grid filter's leaf size. */
+  double g_vg_leaf_sz;
+
+  /** \brief Point Cloud (input) pointer. */
+  PointCPtr g_cloud_ptr;
+  
+  /** \brief Point Cloud (filtered) pointer. */
+  PointCPtr g_cloud_filtered, g_cloud_filtered2;
+  
+  /** \brief Point Cloud (filtered) sensros_msg for publ. */
+  sensor_msgs::PointCloud2 g_cloud_filtered_msg;
+
+  /** \brief ROS geometry message point. */
+  geometry_msgs::PointStamped g_cyl_pt_msg;
+  
+  /** \brief Point Cloud (input). */
+  pcl::PCLPointCloud2 g_pcl_pc;
+  
+  /** \brief Voxel Grid filter. */
+  pcl::VoxelGrid<PointT> g_vx;
+  
+  /** \brief Pass Through filter. */
+  pcl::PassThrough<PointT> g_pt;
+  
+  /** \brief Pass Through min and max threshold sizes. */
+  double g_pt_thrs_min, g_pt_thrs_max;
+  
+  /** \brief KDTree for nearest neighborhood search. */
+  pcl::search::KdTree<PointT>::Ptr g_tree_ptr;
+  
+  /** \brief Normal estimation. */
+  pcl::NormalEstimation<PointT, pcl::Normal> g_ne;
+  
+  /** \brief Cloud of normals. */
+  pcl::PointCloud<pcl::Normal>::Ptr g_cloud_normals, g_cloud_normals2;
+  
+  /** \brief Nearest neighborhooh size for normal estimation. */
+  double g_k_nn;
+  
+  /** \brief SAC segmentation. */
+  pcl::SACSegmentationFromNormals<PointT, pcl::Normal> g_seg; 
+  
+  /** \brief Extract point cloud indices. */
+  pcl::ExtractIndices<PointT> g_extract_pc;
+
+  /** \brief Extract point cloud normal indices. */
+  pcl::ExtractIndices<pcl::Normal> g_extract_normals;
+  
+  /** \brief Point indices for plane. */
+  pcl::PointIndices::Ptr g_inliers_plane;
+    
+  /** \brief Point indices for cylinder. */
+  pcl::PointIndices::Ptr g_inliers_cylinder;
+  
+  /** \brief Model coefficients for the plane segmentation. */
+  pcl::ModelCoefficients::Ptr g_coeff_plane;
+  
+  /** \brief Model coefficients for the culinder segmentation. */
+  pcl::ModelCoefficients::Ptr g_coeff_cylinder;
+
+    /** \brief Point cloud to hold plane and cylinder points. */
+  PointCPtr g_cloud_plane, g_cloud_cylinder;
+
+  pcl::PassThrough<PointT> pass;
+
+  pcl::PointCloud<PointT>::Ptr cloud_filtered;
 
   /* ----- class member functions ----- */
 
