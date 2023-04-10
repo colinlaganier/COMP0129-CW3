@@ -30,6 +30,7 @@ solution is contained within the cw3_team_<your_team_number> package */
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/io/pcd_io.h>
+#include <tf/transform_listener.h>
 
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointC;
@@ -59,12 +60,26 @@ public:
   double naught_pick_grid_y_offset_;
   double drop_height_;
 
+  /** \brief Parameters for Task 1 */
+  /** \brief Parameters for Task 2 */
+  /** \brief Parameters for Task 3 */
 
-   ros::Subscriber cloud_sub_;
+  /** \brief ROS subscriber for the color image */
+  ros::Subscriber cloud_sub_;
 
-
+  /** \brief ROS subscriber for the color image */
+  ros::Subscriber image_sub_;
+  /** \brief Camera data */
+  std::vector<unsigned char, std::allocator<unsigned char> >color_image_data;
+  /** \brief Camera Resolution */
+  int color_image_width_;
+  int color_image_height_;
+  /** \brief Pixel array midpoint */
+  int color_image_midpoint_;
+  /** \brief Number of colour channels (RGB) */
+  int color_channels_ = 3;
  
-   /** \brief The input point cloud frame id. */
+  /** \brief The input point cloud frame id. */
   std::string g_input_pc_frame_id_;
 
   /** \brief ROS publishers. */
@@ -142,11 +157,14 @@ public:
 
   pcl::PointCloud<PointT>::Ptr cloud_filtered;
 
-  /* ----- class member functions ----- */
+  ////////////////////////////////////////////////////////////////////////////////
+  // Class member functions
+  ////////////////////////////////////////////////////////////////////////////////
 
-  // constructor
+  /** \brief Constructor */
   cw3(ros::NodeHandle nh);
 
+  /** \brief Function to load pre-defined constants values */
   void
   load_config();
 
@@ -161,6 +179,14 @@ public:
   t3_callback(cw3_world_spawner::Task3Service::Request &request,
     cw3_world_spawner::Task3Service::Response &response);
 
+  /** \brief Point cloud data callback function */
+  void   
+  pointCloudCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_input_msg);
+  
+  /** \brief RGB camera image callback function*/
+  void 
+  colorImageCallback(const sensor_msgs::Image& msg);
+
   /* ----- class member variables ----- */
 
   ros::NodeHandle nh_;
@@ -172,12 +198,13 @@ public:
   * these are defined in urdf. */
   moveit::planning_interface::MoveGroupInterface arm_group_{"panda_arm"};
   moveit::planning_interface::MoveGroupInterface hand_group_{"hand"};
-    ////////////////////////////////////////////////////////////////////////////////
+
+  ////////////////////////////////////////////////////////////////////////////////
   // Task 1 functions
   ////////////////////////////////////////////////////////////////////////////////
 
   bool
-  MoveArm(geometry_msgs::Pose target_pose);
+  moveArm(geometry_msgs::Pose target_pose);
 
   /** \brief Task 1 function, pick and place an object from a target
    * to a goal using the gripper. 
@@ -188,13 +215,19 @@ public:
    * \return true if object is picked and placed
   */
   bool
-  PickAndPlace(geometry_msgs::PointStamped objectPoint, geometry_msgs::PointStamped objectGoal, std::string shapeType, double x );
+  pickAndPlace(geometry_msgs::PointStamped objectPoint, 
+               geometry_msgs::PointStamped objectGoal, 
+               std::string shapeType, 
+               double x );
 
   bool
-  MoveGripper(float width);
+  moveGripper(float width);
 
   geometry_msgs::Pose
-  Point2Pose(geometry_msgs::Point point);
+  point2Pose(geometry_msgs::Point point);
+
+  // void 
+  // PointCloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
 
   /** \brief MoveIt function for moving the move_group to the target position.
     *

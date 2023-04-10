@@ -14,7 +14,7 @@
 	</include>
 	
 	<!-- launch the cw solving node, change pkg to your team name here! -->
-  <node pkg="cw3_team_x"
+  <node pkg="cw3_team_2"
         name="cw3_solution_node"
         type="cw3_solution_node"
         output="screen"

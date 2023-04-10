@@ -1,11 +1,20 @@
-/* feel free to change any part of this file, or delete this file. In general,
-you can do whatever you want with this template code, including deleting it all
-and starting from scratch. The only requirment is to make sure your entire 
-solution is contained within the cw3_team_<your_team_number> package */
+/**
+  **********************************************************************************
+  * @file     cw3_class.cpp
+  * @author   Colin Laganier, Jacob Nash, Carl Parsons
+  * @date     2023-04-14
+  * @brief   This file contains the constructor and methods for the cw2 class.
+  *          The class advertises the services for the coursework tasks and 
+  *          triggers the robot to perform the tasks.
+  **********************************************************************************
+  * @attention  Requires cw2_class header file.
+  */
 
-#include <cw3_class.h> // change to your team name here!
+#include <cw3_class.h>
 
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Constructor
+////////////////////////////////////////////////////////////////////////////////
 
 cw3::cw3(ros::NodeHandle nh):
 g_cloud_ptr (new PointC), // input point cloud
@@ -33,6 +42,15 @@ g_cloud_ptr (new PointC), // input point cloud
     &cw3::t2_callback, this);
   t3_service_  = nh_.advertiseService("/task3_start",
     &cw3::t3_callback, this);
+
+  // Define the publishers
+  g_pub_cloud = nh.advertise<sensor_msgs::PointCloud2> ("filtered_cloud", 1, true);
+  g_pub_pose = nh.advertise<geometry_msgs::PointStamped> ("cyld_pt", 1, true);
+  
+  // Initialise ROS Subscribers //
+  image_sub_ = nh_.subscribe("/r200/camera/color/image_raw", 1, &cw3::colorImageCallback, this);
+  // Create a ROS subscriber for the input point cloud
+  cloud_sub_ = nh_.subscribe("/r200/camera/depth_registered/points", 1, &cw3::pointCloudCallback, this);
 
   load_config();
 
@@ -80,8 +98,6 @@ void cw3::load_config()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-
-
 bool
 cw3::t1_callback(cw3_world_spawner::Task1Service::Request &request,
   cw3_world_spawner::Task1Service::Response &response) 
@@ -92,7 +108,7 @@ cw3::t1_callback(cw3_world_spawner::Task1Service::Request &request,
 
   double x = 0.04;
 
-  bool success = PickAndPlace(request.object_point,request.goal_point,request.shape_type,x);
+  bool success = pickAndPlace(request.object_point,request.goal_point,request.shape_type,x);
 
   return success;
 }
@@ -123,13 +139,10 @@ cw3::t3_callback(cw3_world_spawner::Task3Service::Request &request,
   return true;
 }
 
-
-
-
-
+///////////////////////////////////////////////////////////////////////////////
 
 void
-cw3::PointCloudCallback
+cw3::pointCloudCallback
   (const sensor_msgs::PointCloud2ConstPtr &cloud_input_msg)
 {
   // Extract inout point cloud info
@@ -151,10 +164,10 @@ cw3::PointCloudCallback
     
   pass.filter (*cloud_filtered);
   // TODO: test if filter is empty
-  g_ne.setInputCloud (cloud_filtered);
-  g_ne.setSearchMethod (g_tree_ptr);
-  g_ne.setKSearch (g_k_nn);
-  g_ne.compute (*g_cloud_normals);
+  // g_ne.setInputCloud (cloud_filtered);
+  // g_ne.setSearchMethod (g_tree_ptr);
+  // g_ne.setKSearch (g_k_nn);
+  // g_ne.compute (*g_cloud_normals);
 
   // Perform the filtering
   //applyVX (g_cloud_ptr, g_cloud_filtered);
@@ -162,38 +175,70 @@ cw3::PointCloudCallback
     
   // Publish the data
   //ROS_INFO ("Publishing Filtered Cloud 2");
-  pubFilteredPCMsg (g_pub_cloud, *cloud_filtered);
-  
-  return;
-}
-////////////////////////////////////////////////////////////////////////////////
-void
-cw3::applyVX (PointCPtr &in_cloud_ptr,
-                      PointCPtr &out_cloud_ptr)
-{
-  g_vx.setInputCloud (in_cloud_ptr);
-  g_vx.setLeafSize (g_vg_leaf_sz, g_vg_leaf_sz, g_vg_leaf_sz);
-  g_vx.filter (*out_cloud_ptr);
+  // pubFilteredPCMsg (g_pub_cloud, *cloud_filtered);
   
   return;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
 void
-cw3::applyPT (PointCPtr &in_cloud_ptr,
-                      PointCPtr &out_cloud_ptr)
+cw3::colorImageCallback(const sensor_msgs::Image& msg)
 {
-  g_pt.setInputCloud (in_cloud_ptr);
-  g_pt.setFilterFieldName ("y");
-  g_pt.setFilterLimits (g_pt_thrs_min, g_pt_thrs_max);
-  g_pt.filter (*out_cloud_ptr);
+  /* This is the callback function for the RGB camera subscriber */ 
   
+  // Setting up the static variables at the first callback 
+  static bool setup = [&](){
+        // Camera feed resolution
+        cw3::color_image_width_ = msg.width;
+        cw3::color_image_height_ = msg.height;
+
+        // Computing the index of the middle pixel
+        cw3::color_image_midpoint_ = cw3::color_channels_ * ((cw3::color_image_width_ * 
+          (cw3::color_image_height_ / 2)) + (cw3::color_image_width_ / 2)) - cw3::color_channels_;
+
+        return true;
+    } ();
+
+  this->color_image_data = msg.data;
+
   return;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// void
+// cw3::applyVX (PointCPtr &in_cloud_ptr,
+//                       PointCPtr &out_cloud_ptr)
+// {
+//   g_vx.setInputCloud (in_cloud_ptr);
+//   g_vx.setLeafSize (g_vg_leaf_sz, g_vg_leaf_sz, g_vg_leaf_sz);
+//   g_vx.filter (*out_cloud_ptr);
+  
+//   return;
+// }
+
+////////////////////////////////////////////////////////////////////////////////
+// void
+// cw3::applyPT (PointCPtr &in_cloud_ptr,
+//                       PointCPtr &out_cloud_ptr)
+// {
+//   g_pt.setInputCloud (in_cloud_ptr);
+//   g_pt.setFilterFieldName ("y");
+//   g_pt.setFilterLimits (g_pt_thrs_min, g_pt_thrs_max);
+//   g_pt.filter (*out_cloud_ptr);
+  
+//   return;
+// }
+
+///////////////////////////////////////////////////////////////////////////////
 
 bool
-cw3::PickAndPlace(geometry_msgs::PointStamped object_point, geometry_msgs::PointStamped object_goal, std::string shape_type, double cube_size){
-  geometry_msgs::Pose inspection_pose = Point2Pose(object_point.point);
+cw3::pickAndPlace(geometry_msgs::PointStamped object_point, 
+                  geometry_msgs::PointStamped object_goal, 
+                  std::string shape_type, 
+                  double cube_size)
+{
+  geometry_msgs::Pose inspection_pose = point2Pose(object_point.point);
   inspection_pose.position.x -= camera_offset_;
   inspection_pose.position.z += inspection_distance_; // Position gripper above object
 
@@ -202,7 +247,7 @@ cw3::PickAndPlace(geometry_msgs::PointStamped object_point, geometry_msgs::Point
   object_point.point.z = 0.15; 
   
   object_goal.point.z = drop_height_;
-   if(shape_type == "nought"){
+  if(shape_type == "nought"){
     object_point.point.x += naught_pick_grid_x_offset_ * cube_size;
     object_point.point.y += naught_pick_grid_y_offset_ * cube_size;
     object_goal.point.x += naught_pick_grid_x_offset_ * cube_size;
@@ -217,8 +262,8 @@ cw3::PickAndPlace(geometry_msgs::PointStamped object_point, geometry_msgs::Point
   else{
     return false;
   }
-  geometry_msgs::Pose drop_pose = Point2Pose(object_goal.point); 
-  geometry_msgs::Pose grasp_pose = Point2Pose(object_point.point); ;
+  geometry_msgs::Pose drop_pose = point2Pose(object_goal.point); 
+  geometry_msgs::Pose grasp_pose = point2Pose(object_point.point); ;
 
 
 
@@ -227,23 +272,25 @@ cw3::PickAndPlace(geometry_msgs::PointStamped object_point, geometry_msgs::Point
   ROS_INFO("%f",inspection_distance_);
   ROS_INFO("PERFORMING PICK");
   // Approach object
-  success *= MoveArm(inspection_pose);
+  success *= moveArm(inspection_pose);
   // TODO: Determine object orientation
   // TODO: Orient gripper
-  success *= MoveGripper(gripper_open_);
-  success *= MoveArm(grasp_pose);
+  success *= moveGripper(gripper_open_);
+  success *= moveArm(grasp_pose);
   // Grasp object
-  success *= MoveGripper(gripper_closed_);
+  success *= moveGripper(gripper_closed_);
   // Place object
-  success *= MoveArm(drop_pose);
-  success *= MoveGripper(gripper_open_);
+  success *= moveArm(drop_pose);
+  success *= moveGripper(gripper_open_);
 
 
   return true;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 bool
-cw3::MoveArm(geometry_msgs::Pose target_pose)
+cw3::moveArm(geometry_msgs::Pose target_pose)
 {
   /* This function moves the move_group to the target position */
 
@@ -266,8 +313,10 @@ cw3::MoveArm(geometry_msgs::Pose target_pose)
   return success;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 bool
-cw3::MoveGripper(float width)
+cw3::moveGripper(float width)
 {
   /* this function moves the gripper fingers to a new position. Joints are:
       - panda_finger_joint1
@@ -302,8 +351,10 @@ cw3::MoveGripper(float width)
   return success;
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 geometry_msgs::Pose
-cw3::Point2Pose(geometry_msgs::Point point){
+cw3::point2Pose(geometry_msgs::Point point){
   /* This function produces a "gripper facing down" pose given a xyz point */
 
   // Position gripper above point
