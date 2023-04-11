@@ -30,6 +30,8 @@ solution is contained within the cw3_team_<your_team_number> package */
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/visualization/cloud_viewer.h>
+#include <pcl/visualization/pcl_visualizer.h>
 #include <tf/transform_listener.h>
 
 typedef pcl::PointXYZRGBA PointT;
@@ -79,11 +81,17 @@ public:
   /** \brief Number of colour channels (RGB) */
   int color_channels_ = 3;
  
+  /** \brief Arm position to scan entire environment */
+  geometry_msgs::Point scan_position_;
+
   /** \brief The input point cloud frame id. */
   std::string g_input_pc_frame_id_;
 
   /** \brief ROS publishers. */
   ros::Publisher g_pub_cloud;
+
+  /** \brief ROS Normal publishers. */
+  ros::Publisher g_pub_cloud_normals;
 
   /** \brief ROS pose publishers. */
   ros::Publisher g_pub_pose;
@@ -220,11 +228,23 @@ public:
                std::string shapeType, 
                double x );
 
+  /** \brief Function to publish the filtered point cloud message.
+    *
+    * \input[in] pc_pub ROS publisher
+    * \input[in] pc point cloud to publish
+    */
+  void 
+  pubFilteredPCMsg(ros::Publisher & pc_pub, PointC & pc);
+
+
   bool
   moveGripper(float width);
 
   geometry_msgs::Pose
   point2Pose(geometry_msgs::Point point);
+
+  void
+  segPlane (PointCPtr &in_cloud_ptr);
 
   // void 
   // PointCloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);

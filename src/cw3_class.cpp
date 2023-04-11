@@ -16,6 +16,8 @@
 // Constructor
 ////////////////////////////////////////////////////////////////////////////////
 
+// pcl::visualization::CloudViewer viewer ("Viewer");
+
 cw3::cw3(ros::NodeHandle nh):
 g_cloud_ptr (new PointC), // input point cloud
   g_cloud_filtered (new PointC), // filtered point cloud
@@ -55,6 +57,10 @@ g_cloud_ptr (new PointC), // input point cloud
   load_config();
 
   ROS_INFO("cw3 class initialised");
+
+  // geometry_msgs::Pose scan_pose = point2Pose(scan_position_);
+  // bool success = true;
+  // success *= moveArm(scan_pose);
 }
 
 void cw3::load_config()
@@ -82,9 +88,15 @@ void cw3::load_config()
   //g_pt_thrs_max = 0.77; 
 
   // Defining the Robot scanning position for task 3
-  //scan_position_.x = 0.3773;
-  //scan_position_.y = -0.0015;
-  //scan_position_.z = 0.8773;
+  scan_position_.x = 0.3773;
+  scan_position_.y = -0.0015;
+  scan_position_.z = 0.8773;
+
+  g_vg_leaf_sz = 0.01; // VoxelGrid leaf size: Better in a config file
+  g_pt_thrs_min = 0.0; // PassThrough min thres: Better in a config file
+  g_pt_thrs_max = 0.7; // PassThrough max thres: Better in a config file
+  g_k_nn = 50; // Normals nn size: Better in a config file
+
 
   // Positions of the gripper for the different tasks 
   //basket_height_ = 0.40;
@@ -160,25 +172,103 @@ cw3::pointCloudCallback
   pass.setInputCloud (g_cloud_ptr);
   pass.setFilterFieldName ("z");
   pass.setFilterLimits (0.49, 0.51);
+  // pass.setFilterLimits (0.45, 0.55);
+
     //pass.setFilterLimitsNegative (true);
     
-  pass.filter (*cloud_filtered);
-  // TODO: test if filter is empty
-  // g_ne.setInputCloud (cloud_filtered);
-  // g_ne.setSearchMethod (g_tree_ptr);
-  // g_ne.setKSearch (g_k_nn);
-  // g_ne.compute (*g_cloud_normals);
+  pass.filter(*g_cloud_filtered);
 
+  // TODO: test if filter is empty
+  // g_ne.setInputCloud(g_cloud_filtered);
+  // g_ne.setSearchMethod(g_tree_ptr);
+  // g_ne.setKSearch(g_k_nn);
+  // g_ne.compute(*g_cloud_normals);
+
+  // segPlane(g_cloud_filtered);
   // Perform the filtering
   //applyVX (g_cloud_ptr, g_cloud_filtered);
   //applyPT (g_cloud_ptr, g_cloud_filtered);
     
   // Publish the data
   //ROS_INFO ("Publishing Filtered Cloud 2");
-  // pubFilteredPCMsg (g_pub_cloud, *cloud_filtered);
+  // if (g_cloud_plane->points.size() > 0)
+  // {
+  //   ROS_INFO ("Publishing Plane");
+  //   pubFilteredPCMsg(g_pub_cloud, *g_cloud_plane);
+  // }
+  // else
+  // {
+  //   // ROS_INFO ("Publishing Filtered Cloud 4");
+  //   pubFilteredPCMsg(g_pub_cloud, *g_cloud_filtered);
+  // }
+  pubFilteredPCMsg(g_pub_cloud, *g_cloud_filtered);
+
+  // pcl::toROSMsg(*g_cloud_normals, g_cloud_normals_msg);
+  // g_pub_cloud_normals.publish (g_cloud_normals_msg);
   
   return;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Point Cloud callback helper functions
+////////////////////////////////////////////////////////////////////////////////
+
+void
+cw3::pubFilteredPCMsg (ros::Publisher &pc_pub,
+                               PointC &pc)
+{
+  /* This function publishes the filtered pointcloud */
+
+  // Publish the data
+  pcl::toROSMsg(pc, g_cloud_filtered_msg);
+  pc_pub.publish (g_cloud_filtered_msg);
+  
+  return;
+}
+
+void
+cw3::segPlane (PointCPtr &in_cloud_ptr)
+{
+  // Create the segmentation object for the planar model
+  // and set all the params
+  g_seg.setOptimizeCoefficients (true);
+  g_seg.setModelType (pcl::SACMODEL_NORMAL_PLANE);
+  g_seg.setNormalDistanceWeight (0.1); //bad style
+  g_seg.setMethodType (pcl::SAC_RANSAC);
+  g_seg.setMaxIterations (100); //bad style
+  g_seg.setDistanceThreshold (0.03); //bad style
+  g_seg.setInputCloud (in_cloud_ptr);
+  g_seg.setInputNormals (g_cloud_normals);
+  // Obtain the plane inliers and coefficients
+  g_seg.segment (*g_inliers_plane, *g_coeff_plane);
+  
+  // Extract the planar inliers from the input cloud
+  g_extract_pc.setInputCloud (in_cloud_ptr);
+  g_extract_pc.setIndices (g_inliers_plane);
+  g_extract_pc.setNegative (false);
+  
+  // Write the planar inliers to disk
+  g_extract_pc.filter (*g_cloud_plane);
+  
+  // Remove the planar inliers, extract the rest
+  g_extract_pc.setNegative (true);
+  g_extract_pc.filter (*g_cloud_filtered2);
+  g_extract_normals.setNegative (true);
+  g_extract_normals.setInputCloud (g_cloud_normals);
+  g_extract_normals.setIndices (g_inliers_plane);
+  g_extract_normals.filter (*g_cloud_normals2);
+
+  //ROS_INFO_STREAM ("Plane coefficients: " << *g_coeff_plane);
+  ROS_INFO_STREAM ("PointCloud representing the planar component: "
+                   << g_cloud_plane->size ()
+                   << " data points.");
+  // get number of elements in g_cloud_normals2
+  ROS_INFO_STREAM ("Number of planes: "
+                  << g_cloud_normals2->size () 
+                  << " data points.");
+
+}
+    
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -275,13 +365,13 @@ cw3::pickAndPlace(geometry_msgs::PointStamped object_point,
   success *= moveArm(inspection_pose);
   // TODO: Determine object orientation
   // TODO: Orient gripper
-  success *= moveGripper(gripper_open_);
-  success *= moveArm(grasp_pose);
-  // Grasp object
-  success *= moveGripper(gripper_closed_);
-  // Place object
-  success *= moveArm(drop_pose);
-  success *= moveGripper(gripper_open_);
+  // success *= moveGripper(gripper_open_);
+  // success *= moveArm(grasp_pose);
+  // // Grasp object
+  // success *= moveGripper(gripper_closed_);
+  // // Place object
+  // success *= moveArm(drop_pose);
+  // success *= moveGripper(gripper_open_);
 
 
   return true;
@@ -304,7 +394,6 @@ cw3::moveArm(geometry_msgs::Pose target_pose)
   bool success = (arm_group_.plan(my_plan) ==
     moveit::planning_interface::MoveItErrorCode::SUCCESS);
 
-  // google 'c++ conditional operator' to understand this line
   ROS_INFO("Visualising plan %s", success ? "" : "FAILED");
 
   // execute the planned path
