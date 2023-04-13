@@ -49,6 +49,13 @@ foo@bar:~catkin_ws$ rosservice call /task 1
 foo@bar:~catkin_ws$ rosservice call /task 2
 ```
 
+The identified shapes are outputted in the ROS console as such:
+```console
+[ INFO] [1681413706.640871093, 178.670000000]: ////////////////////////////////////////////////////////////////////////////
+[ INFO] [1681413706.640889482, 178.670000000]: Reference Shape 1: cross | Reference Shape 2: nought | Mystery Shape: nought
+[ INFO] [1681413706.641238191, 178.670000000]: ////////////////////////////////////////////////////////////////////////////
+```
+
 ### Task 3
 *Colin %, Jacob %, Carl % ( hour)*
 
