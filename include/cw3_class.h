@@ -33,6 +33,7 @@ solution is contained within the cw3_team_<your_team_number> package */
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <tf/transform_listener.h>
+#include <pcl/features/moment_of_inertia_estimation.h>
 
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointC;
@@ -211,6 +212,9 @@ public:
   // Task 1 functions
   ////////////////////////////////////////////////////////////////////////////////
 
+  bool 
+  task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::string shape_type);
+
   bool
   moveArm(geometry_msgs::Pose target_pose);
 
@@ -223,10 +227,9 @@ public:
    * \return true if object is picked and placed
   */
   bool
-  pickAndPlace(geometry_msgs::PointStamped objectPoint, 
-               geometry_msgs::PointStamped objectGoal, 
-               std::string shapeType, 
-               double x );
+  pickAndPlace(geometry_msgs::Point objectPoint, 
+               geometry_msgs::Point objectGoal, 
+               double rotation = 0.0);
 
   /** \brief Function to publish the filtered point cloud message.
     *
@@ -241,7 +244,7 @@ public:
   moveGripper(float width);
 
   geometry_msgs::Pose
-  point2Pose(geometry_msgs::Point point);
+  point2Pose(geometry_msgs::Point point, double rotation = 0.0);
 
   void
   segPlane (PointCPtr &in_cloud_ptr);
@@ -255,6 +258,17 @@ public:
     *
     * \return true if moved to target position 
     */
+
+  
+   ////////////////////////////////////////////////////////////////////////////////
+  // Task 2 functions
+  ////////////////////////////////////////////////////////////////////////////////
+
+  int64_t
+  task_2(std::vector<geometry_msgs::PointStamped> ref, geometry_msgs::PointStamped mystery);
+
+  std::string
+  survey(geometry_msgs::Point point);
 
 };
 
