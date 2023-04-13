@@ -133,6 +133,10 @@ cw3::t2_callback(cw3_world_spawner::Task2Service::Request &request,
 
   ROS_INFO("The coursework solving callback for task 2 has been triggered");
 
+  int64_t mystery_object_num = task_2(request.ref_object_points, request.mystery_object_point);
+
+  response.mystery_object_num = mystery_object_num;
+
   return true;
 }
 
@@ -509,6 +513,49 @@ cw3::pickAndPlace(geometry_msgs::Point objectPoint, geometry_msgs::Point objectG
   return true;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Task 2
+////////////////////////////////////////////////////////////////////////////////
+
+int64_t
+cw3::task_2(std::vector<geometry_msgs::PointStamped> ref, geometry_msgs::PointStamped mystery){
+
+  // Initialise output string
+  std::string output_string = "Reference Shape 1: ";
+
+  // Inspect first reference shape
+  std::string ref_shape_1 = survey(ref[0].point);
+  output_string += ref_shape_1;
+  output_string += " | Reference Shape 2: ";
+
+  // Infer second reference shape
+  std::string ref_shape_2;
+  if (ref_shape_1 == "nought"){
+    ref_shape_2 = "cross";
+  }else{
+    ref_shape_2 = "nought";
+  }
+  output_string += ref_shape_2;
+  output_string += " | Mystery Shape: ";
+
+  // Inspect mystery shape
+  std::string mystery_shape = survey(mystery.point);
+  output_string += mystery_shape;
+  int64_t mystery_object_num;
+  if (mystery_shape == ref_shape_1){
+    mystery_object_num = 1;
+  }else{
+    mystery_object_num = 2;
+  }
+
+  // Print results
+  ROS_INFO("/////////////////////////////////////////////////////////////////////");
+  ROS_INFO("%s", output_string.c_str());
+  ROS_INFO("/////////////////////////////////////////////////////////////////////");
+
+  return mystery_object_num;
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
