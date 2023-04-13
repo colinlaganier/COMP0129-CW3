@@ -118,11 +118,9 @@ cw3::t1_callback(cw3_world_spawner::Task1Service::Request &request,
 
   ROS_INFO("The coursework solving callback for task 1 has been triggered");
 
-  double x = 0.04;
+  bool success = task_1(request.object_point.point, request.goal_point.point, request.shape_type);
 
-  bool success = pickAndPlace(request.object_point,request.goal_point,request.shape_type,x);
-
-  return success;
+  return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -322,60 +320,97 @@ cw3::colorImageCallback(const sensor_msgs::Image& msg)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-bool
-cw3::pickAndPlace(geometry_msgs::PointStamped object_point, 
-                  geometry_msgs::PointStamped object_goal, 
-                  std::string shape_type, 
-                  double cube_size)
-{
-  geometry_msgs::Pose inspection_pose = point2Pose(object_point.point);
-  inspection_pose.position.x -= camera_offset_;
-  inspection_pose.position.z += inspection_distance_; // Position gripper above object
+bool 
+cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::string shape_type){
 
+  // Position camera above object
+  geometry_msgs::Pose view_pose = point2Pose(object);
+  view_pose.position.z = 0.6; // Distance above object
+  view_pose.position.x -= 0.04; // Camera offset
+  // Move arm
+  bool success = moveArm(view_pose);
 
- ROS_INFO("%f",object_point.point.z);
-  object_point.point.z = 0.15; 
-  
-  object_goal.point.z = drop_height_;
-  if(shape_type == "nought"){
-    object_point.point.x += naught_pick_grid_x_offset_ * cube_size;
-    object_point.point.y += naught_pick_grid_y_offset_ * cube_size;
-    object_goal.point.x += naught_pick_grid_x_offset_ * cube_size;
-    object_goal.point.y += naught_pick_grid_y_offset_ * cube_size;
+  // Create snapshot of point cloud for processing
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGBA>);
+  if (shape_type == "cross"){
+    copyPointCloud(*g_cloud_filtered2, *cloud);
+  } else{
+    copyPointCloud(*g_cloud_filtered, *cloud);
   }
-  else if(shape_type == "cross"){
-    object_point.point.x += cross_pick_grid_x_offset_ * cube_size;
-    object_point.point.y += cross_pick_grid_y_offset_ * cube_size;
-    object_goal.point.x += cross_pick_grid_x_offset_ * cube_size;
-    object_goal.point.y += cross_pick_grid_y_offset_ * cube_size;
+
+  // PCL feature extractor to obtain object orientation
+  pcl::MomentOfInertiaEstimation <pcl::PointXYZRGBA> feature_extractor;
+  feature_extractor.setInputCloud (cloud);
+  feature_extractor.compute ();
+  // Determine Object Axis
+  Eigen::Vector3f major_vector, middle_vector, minor_vector;
+  feature_extractor.getEigenVectors (major_vector, middle_vector, minor_vector);
+
+  // Compute angle between object local y-axis and global y-axis
+  double angle;
+  // Angle between vectors (2D - x/y plane only)
+  double dot = middle_vector(1);
+  double det = middle_vector(0);
+  angle = atan2(det,dot);
+
+  // Remove obtuse angles
+  if (angle > 3.1415/2){
+    angle -= 3.14159;
+  } else if (angle < -3.1415/2){
+    angle += 3.14159;
   }
-  else{
-    return false;
+  // Minimise rotation to +- 45 degrees
+  if (angle > 3.1415/4){
+    angle -= 3.14159/2;
+  } else if (angle < 3.1415/4){
+    angle += 3.14159/2;
   }
-  geometry_msgs::Pose drop_pose = point2Pose(object_goal.point); 
-  geometry_msgs::Pose grasp_pose = point2Pose(object_point.point); ;
 
+  ROS_INFO("CALCULATED ANGLE: (%f)", angle * (180/3.1415));
 
+  double x = 0.04; // Shape size
+  // Positional offsets for pick and place
+  if(shape_type == "cross"){
+    object.x += x * cos(angle);
+    target.x += x * cos(angle);
+    object.y += x * sin(angle);
+    target.y += x * sin(angle);
+  }else{
+    object.x += 2 * x * sin(angle);
+    target.x += 2 * x * sin(angle);
+    object.y += 2 * x * cos(angle);
+    target.y += 2 *x * cos(angle);
+  }
 
-  // PERFORM PICK //
-  bool success = true;
-  ROS_INFO("%f",inspection_distance_);
-  ROS_INFO("PERFORMING PICK");
-  // Approach object
-  success *= moveArm(inspection_pose);
-  // TODO: Determine object orientation
-  // TODO: Orient gripper
-  // success *= moveGripper(gripper_open_);
-  // success *= moveArm(grasp_pose);
-  // // Grasp object
-  // success *= moveGripper(gripper_closed_);
-  // // Place object
-  // success *= moveArm(drop_pose);
-  // success *= moveGripper(gripper_open_);
-
+  success *= pickAndPlace(object,target, -angle);
 
   return true;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// Task 1 helper functions
+////////////////////////////////////////////////////////////////////////////////
+
+geometry_msgs::Pose
+cw3::point2Pose(geometry_msgs::Point point, double rotation){
+  /* This function produces a "gripper facing down" pose given a xyz point */
+
+  // Position gripper above point
+  tf2::Quaternion q_x180deg(-1, 0, 0, 0);
+  // Gripper Orientation
+  tf2::Quaternion q_object;
+  q_object.setRPY(0, 0, angle_offset_ + rotation);
+  tf2::Quaternion q_result = q_x180deg * q_object;
+  geometry_msgs::Quaternion orientation = tf2::toMsg(q_result);
+
+  // set the desired Pose
+  geometry_msgs::Pose pose;
+  pose.position = point;
+  pose.orientation = orientation;
+
+  return pose;
+}
+////////////////////////////////////////////////////////////////////////////////
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -440,24 +475,71 @@ cw3::moveGripper(float width)
   return success;
 }
 
-///////////////////////////////////////////////////////////////////////////////
+bool
+cw3::pickAndPlace(geometry_msgs::Point objectPoint, geometry_msgs::Point objectGoal,double rotation)
+{
 
-geometry_msgs::Pose
-cw3::point2Pose(geometry_msgs::Point point){
-  /* This function produces a "gripper facing down" pose given a xyz point */
+  // Generate Picking Pose:
+  geometry_msgs::Pose grasp_pose = point2Pose(objectPoint, rotation);
+  grasp_pose.position.z += 0.15; //align shape with gripper
+  // Aproach and Takeaway:
+  geometry_msgs::Pose offset_pose = grasp_pose;
+  offset_pose.position.z += 0.125;
+  // Releasing Object:
+  geometry_msgs::Pose release_pose = point2Pose(objectGoal);
+  release_pose.position.z += 0.25; // Position gripper above basket
 
-  // Position gripper above point
-  tf2::Quaternion q_x180deg(-1, 0, 0, 0);
-  // Gripper Orientation
-  tf2::Quaternion q_object;
-  q_object.setRPY(0, 0, angle_offset_);
-  tf2::Quaternion q_result = q_x180deg * q_object;
-  geometry_msgs::Quaternion orientation = tf2::toMsg(q_result);
+  //Perform Pick
+  bool success = true;
+  // Aproach
+  success *= moveArm(offset_pose);
+  success *= moveGripper(gripper_open_);
+  success *= moveArm(grasp_pose);
+  success *= moveGripper(gripper_closed_);
+  // Takeaway
+  success *= moveArm(offset_pose);
 
-  // set the desired Pose
-  geometry_msgs::Pose pose;
-  pose.position = point;
-  pose.orientation = orientation;
-
-  return pose;
+  /**
+  // Place
+  success *= moveArm(release_pose);
+  // Open gripper
+  success *= moveGripper(gripper_open_);
+  */
+  
+  return true;
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Task 2 helper functions
+////////////////////////////////////////////////////////////////////////////////
+std::string
+cw3::survey(geometry_msgs::Point point){
+
+  // Define imaging pose
+  geometry_msgs::Pose image_pose = point2Pose(point);
+  image_pose.position.z += 0.3; //Offset above object
+  image_pose.position.x -= 0.04; // Offset of camera from end-effector
+
+  // Move camera above shape
+  bool success = moveArm(image_pose);
+  // Extract central pixel values from raw RGB data
+  int redValue = color_image_data[color_image_midpoint_];
+  int greenValue = color_image_data[color_image_midpoint_ + 1];
+  int blueValue = color_image_data[color_image_midpoint_ + 2];
+  
+  // Determine shape
+  std::string shape;
+  // Nought
+  if (greenValue > redValue && greenValue > blueValue){
+    shape = "nought";
+    ROS_INFO("NOUGHT");}
+  // Cross
+  else{
+    shape = "cross";
+    ROS_INFO("CROSS");}
+  return shape;
+}
+
+///////////////////////////////////////////////////////////////////////////////
