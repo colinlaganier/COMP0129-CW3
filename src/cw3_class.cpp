@@ -159,21 +159,26 @@ cw3::pointCloudCallback
   //pcl::PointCloud<PointT> cloud = *cloud.get();
 
   // Will have to create a new publisher for octomap
-  if (task_3_filter)
+  if (task_1_filter)
+  {
+    nought_filter.setMin(Eigen::Vector4f(-0.13, 0.05, 0.45, 1.0));
+    nought_filter.setMax(Eigen::Vector4f(0.13, 0.4, 0.51, 1.0));
+    nought_filter.setInputCloud(g_cloud_ptr);
+    nought_filter.filter(*g_cloud_filtered);
+
+    cross_filter.setInputCloud(g_cloud_ptr);
+    cross_filter.setFilterFieldName("z");
+    cross_filter.setFilterLimits(0.45, 0.51);
+    cross_filter.filter(*g_cloud_filtered2);
+
+    pubFilteredPCMsg(g_pub_cloud, *g_cloud_filtered2);
+  }
+  else if (task_3_filter)
   {
     applyFilterTask3(g_cloud_ptr, g_cloud_filtered_octomap);
     pubFilteredPCMsg(g_pub_cloud_octomap, *g_cloud_filtered_octomap);
   }
   
-  // pass.setInputCloud (g_cloud_ptr);
-  // pass.setFilterFieldName ("z");
-  // pass.setFilterLimits (0.49, 0.51);
-
-    
-  // pass.filter(*g_cloud_filtered);
-
-  // pubFilteredPCMsg(g_pub_cloud, *g_cloud_filtered);
-
   return;
 }
 
@@ -270,6 +275,8 @@ cw3::octomapCallback
 bool 
 cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::string shape_type){
 
+  task_1_filter = true;
+
   // Position camera above object
   geometry_msgs::Pose view_pose = point2Pose(object);
   view_pose.position.z = 0.6; // Distance above object
@@ -330,6 +337,8 @@ cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::strin
   }
 
   success *= pickAndPlace(object,target, -angle);
+
+  task_1_filter = false;
 
   return true;
 }
@@ -535,7 +544,6 @@ cw3::survey(geometry_msgs::Point point){
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-=======
 // Task 3
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -590,6 +598,7 @@ cw3::task_3()
     }
     else
     {
+      // double width = get_cluster_width(cluster);
       // Add the centroid position to the vector
       object_positions.push_back(centroid_position);
     }
@@ -789,6 +798,8 @@ cw3::scanEnvironment()
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
 cw3::Object
 cw3::identifyObject()
 {
@@ -812,3 +823,19 @@ cw3::identifyObject()
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+double 
+cw3::getClusterWidth(pcl::PointCloud<pcl::PointXYZ>::Ptr cluster)
+{
+  pcl::MomentOfInertiaEstimation <pcl::PointXYZ> feature_extractor;
+  feature_extractor.setInputCloud(cluster);
+  feature_extractor.compute();
+
+  // Camera space bounding box
+  pcl::PointXYZ min_point_AABB;
+  pcl::PointXYZ max_point_AABB;
+  
+  feature_extractor.getAABB(min_point_AABB, max_point_AABB);
+  return max_point_AABB.x - min_point_AABB.x; 
+}
