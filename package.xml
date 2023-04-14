@@ -70,6 +70,8 @@
   <depend>pcl_conversions</depend>
   <depend>cw3_world_spawner</depend>
 
+  <build_depend>octomap</build_depend>
+  <exec_depend>octomap</exec_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

@@ -17,6 +17,7 @@ solution is contained within the cw3_team_<your_team_number> package */
 // PCL specific includes
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/centroid.h>
+#include <pcl/common/common.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
@@ -65,11 +66,37 @@ public:
 
   /** \brief Parameters for Task 1 */
   /** \brief Parameters for Task 2 */
-  /** \brief Parameters for Task 3 */
 
+  /** \brief Parameters for Task 3 */
+  /** \brief The octomap point cloud frame id. */
+  std::string g_octomap_frame_id_;
+  /** \brief The octomap point cloud. */
+  pcl::PCLPointCloud2 g_octomap_pc;
+  /** \brief The octomap point cloud pointer. */
+  pcl::PointCloud<pcl::PointXYZ>::Ptr g_octomap_ptr;
+  /** \brief The filtered octomap point cloud pointer. */
+  pcl::PointCloud<pcl::PointXYZ>::Ptr g_octomap_filtered;
+  /** \brief The filtered octomap point cloud message. */
+  sensor_msgs::PointCloud2 g_octomap_filtered_msg;
+  /** \brief ROS octomap publishers. */
+  ros::Publisher g_pub_octomap;
+  /** \brief ROS octomap publishers. */
+  ros::Publisher g_pub_cloud_octomap;
+  /** \brief ROS octomap subscriber. */
+  ros::Subscriber octomap_pointcloud_sub_;
+  /** \brief Task 3 filter flag. */
+  bool task_3_filter = false;
+  /** \brief Octomap point cloud filter. */
+  pcl::PassThrough<pcl::PointXYZ> g_octomap_pt;
+  /** \brief Rounding precision value */
+  double position_precision_ = 10000;
+  /** \brief Object class for identification. */
+  enum Object {cross, nought, basket, obstacle, unknown};
+  Object Objects;
   /** \brief ROS subscriber for the color image */
   ros::Subscriber cloud_sub_;
 
+  /** \brief Parameters for Camera image */
   /** \brief ROS subscriber for the color image */
   ros::Subscriber image_sub_;
   /** \brief Camera data */
@@ -106,7 +133,7 @@ public:
   PointCPtr g_cloud_ptr;
   
   /** \brief Point Cloud (filtered) pointer. */
-  PointCPtr g_cloud_filtered, g_cloud_filtered2;
+  PointCPtr g_cloud_filtered, g_cloud_filtered2, g_cloud_filtered_octomap;
   
   /** \brief Point Cloud (filtered) sensros_msg for publ. */
   sensor_msgs::PointCloud2 g_cloud_filtered_msg;
@@ -196,6 +223,10 @@ public:
   void 
   colorImageCallback(const sensor_msgs::Image& msg);
 
+  /** \brief Octomap Pointcloud callback function */
+  void
+  octomapCallback(const sensor_msgs::PointCloud2ConstPtr &cloud_input_msg);
+
   /* ----- class member variables ----- */
 
   ros::NodeHandle nh_;
@@ -213,7 +244,9 @@ public:
   ////////////////////////////////////////////////////////////////////////////////
 
   bool 
-  task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::string shape_type);
+  task_1(geometry_msgs::Point object, 
+         geometry_msgs::Point target, 
+         std::string shape_type);
 
   bool
   moveArm(geometry_msgs::Pose target_pose);
@@ -248,19 +281,8 @@ public:
 
   void
   segPlane (PointCPtr &in_cloud_ptr);
-
-  // void 
-  // PointCloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud_msg);
-
-  /** \brief MoveIt function for moving the move_group to the target position.
-    *
-    * \input[in] target_pose pose to move the arm to
-    *
-    * \return true if moved to target position 
-    */
-
   
-   ////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////
   // Task 2 functions
   ////////////////////////////////////////////////////////////////////////////////
 
@@ -270,6 +292,47 @@ public:
   std::string
   survey(geometry_msgs::Point point);
 
+  ////////////////////////////////////////////////////////////////////////////////
+  // Task 3 functions
+  ////////////////////////////////////////////////////////////////////////////////
+
+  /** \brief Task 3 function, scan environment, identify objects, count 
+    *        them and pick and place the most common object in the basket.
+    * 
+    * \return tuple of number of most common object and number of objects
+    */
+  std::tuple<uint64_t, uint64_t>
+  task_3();
+
+  /** \brief Function to apply a filter to the point cloud.
+    *
+    * \input[in] in_cloud_ptr input point cloud
+    * \input[out] out_cloud_ptr output point cloud
+    */
+  void 
+  applyFilterTask3(PointCPtr &in_cloud_ptr,
+                   PointCPtr &out_cloud_ptr);
+
+  /** \brief Function to scan the environment and create an octomap. */
+  void
+  scanEnvironment();
+
+  /** \brief Function to cluster the octomap pointcloud into individual
+    *        pointclouds for each object
+    * 
+    * \input[in] PointXYZ pointcloud 
+    * 
+    * \return vector of PointXYZ pointclouds for each object
+    */
+  std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>
+  clusterPointclouds(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud);
+
+  /** \brief Function to identify an object at a given point.
+    *  
+    * \return Object object identified
+    */
+  Object
+  identifyObject();
 };
 
 #endif // end of include guard for cw3_CLASS_H_
