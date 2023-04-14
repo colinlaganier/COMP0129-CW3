@@ -19,6 +19,7 @@ cw3::cw3(ros::NodeHandle nh):
   g_cloud_ptr (new PointC), // input point cloud
   g_cloud_filtered (new PointC), // filtered point cloud
   g_cloud_filtered2 (new PointC), // filtered point cloud
+  g_cloud_filtered_octomap (new PointC), // filtered point cloud for octomap
   g_octomap_ptr (new pcl::PointCloud<pcl::PointXYZ>), // input octomap point cloud
   g_octomap_filtered (new pcl::PointCloud<pcl::PointXYZ>) // filtered octomap point cloud
 {
@@ -37,6 +38,7 @@ cw3::cw3(ros::NodeHandle nh):
   // Define the publishers
   g_pub_cloud = nh.advertise<sensor_msgs::PointCloud2> ("filtered_cloud", 1, true);
   g_pub_pose = nh.advertise<geometry_msgs::PointStamped> ("cyld_pt", 1, true);
+  g_pub_cloud_octomap = nh.advertise<sensor_msgs::PointCloud2> ("octomap_cloud", 1, true);
   g_pub_octomap = nh.advertise<sensor_msgs::PointCloud2> ("filtered_octomap_cloud", 1, true);
 
   // Initialise ROS Subscribers //
@@ -159,8 +161,8 @@ cw3::pointCloudCallback
   // Will have to create a new publisher for octomap
   if (task_3_filter)
   {
-    applyFilterTask3(g_cloud_ptr, g_cloud_filtered);
-    pubFilteredPCMsg(g_pub_cloud, *g_cloud_filtered);
+    applyFilterTask3(g_cloud_ptr, g_cloud_filtered_octomap);
+    pubFilteredPCMsg(g_pub_cloud_octomap, *g_cloud_filtered_octomap);
   }
   
   // pass.setInputCloud (g_cloud_ptr);

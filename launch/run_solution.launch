@@ -19,7 +19,7 @@
 		<!-- frame_id of the data source -->
 		<param name="frame_id" type="string" value="panda_link0" />
 		<!-- data source to integrate (PointCloud2) -->
-		<remap from="cloud_in" to="/filtered_cloud" />
+		<remap from="cloud_in" to="/octomap_cloud" />
 	</node>
 	
 	<!-- launch the cw solving node, change pkg to your team name here! -->

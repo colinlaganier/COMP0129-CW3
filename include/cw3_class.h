@@ -80,6 +80,8 @@ public:
   sensor_msgs::PointCloud2 g_octomap_filtered_msg;
   /** \brief ROS octomap publishers. */
   ros::Publisher g_pub_octomap;
+  /** \brief ROS octomap publishers. */
+  ros::Publisher g_pub_cloud_octomap;
   /** \brief ROS octomap subscriber. */
   ros::Subscriber octomap_pointcloud_sub_;
   /** \brief Task 3 filter flag. */
@@ -131,7 +133,7 @@ public:
   PointCPtr g_cloud_ptr;
   
   /** \brief Point Cloud (filtered) pointer. */
-  PointCPtr g_cloud_filtered, g_cloud_filtered2;
+  PointCPtr g_cloud_filtered, g_cloud_filtered2, g_cloud_filtered_octomap;
   
   /** \brief Point Cloud (filtered) sensros_msg for publ. */
   sensor_msgs::PointCloud2 g_cloud_filtered_msg;
