@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor
 ////////////////////////////////////////////////////////////////////////////////
-IU 
 cw3::cw3(ros::NodeHandle nh):
   g_cloud_ptr (new PointC), // input point cloud
   g_cloud_filtered (new PointC), // filtered point cloud
@@ -632,7 +631,8 @@ cw3::task_3()
     geometry_msgs::Point target = cross_positions.back();
     // bool success = task_1(target, basket_position, "cross");
 
-    ROS_INFO("")
+    ROS_INFO_STREAM("Number of objects: " << cross_positions.size() + nought_positions.size());
+    ROS_INFO_STREAM("Number of crosses: " << cross_positions.size());
 
     return std::make_tuple(cross_positions.size() + nought_positions.size(), cross_positions.size());
   }
@@ -640,6 +640,9 @@ cw3::task_3()
   {
     geometry_msgs::Point target = nought_positions.back();
     // bool success = task_1(target, basket_position, "nought");
+
+    ROS_INFO_STREAM("Number of objects: " << cross_positions.size() + nought_positions.size());
+    ROS_INFO_STREAM("Number of noughts: " << nought_positions.size());
 
     return std::make_tuple(cross_positions.size() + nought_positions.size(), nought_positions.size());
   }
@@ -666,7 +669,7 @@ cw3::clusterPointclouds(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
   // Create the extraction object for the clusters
   pcl::EuclideanClusterExtraction<pcl::PointXYZ> cluster_extraction;
   // Set the extraction parameters
-  cluster_extraction.setClusterTolerance(0.04); // 2cm
+  cluster_extraction.setClusterTolerance(0.04); // 4cm
   cluster_extraction.setMinClusterSize(50);  
   cluster_extraction.setMaxClusterSize(10000);
   cluster_extraction.setSearchMethod(tree);
@@ -774,8 +777,11 @@ cw3::scanEnvironment()
   }
   ros::Duration(1.0).sleep();
 
- // Disable filter when scan is complete
- task_3_filter = false;
+  // Disable filter when scan is complete
+  task_3_filter = false;
+  // Reset the arm velocity
+  arm_group_.setMaxVelocityScalingFactor(0.1);
+
 }
 
 cw3::Object
