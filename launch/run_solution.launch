@@ -12,6 +12,15 @@
 		<arg name="launch_delay" value="$(arg launch_delay)"/>
 		<arg name="models_dir" value="$(arg models_dir)"/>
 	</include>
+
+	<!-- create octomap server -->	
+	<node pkg="octomap_server" type="octomap_server_node" name="octomap_server">
+		<param name="resolution" value="0.01" />
+		<!-- frame_id of the data source -->
+		<param name="frame_id" type="string" value="panda_link0" />
+		<!-- data source to integrate (PointCloud2) -->
+		<remap from="cloud_in" to="/filtered_cloud" />
+	</node>
 	
 	<!-- launch the cw solving node, change pkg to your team name here! -->
   <node pkg="cw3_team_2"
