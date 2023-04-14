@@ -70,7 +70,6 @@ public:
   pcl::CropBox<pcl::PointXYZRGBA> nought_filter;
   /** \brief Pass Through filter. */
   pcl::PassThrough<pcl::PointXYZRGBA> cross_filter;
-  /** \brief Parameters for Task 2 */
 
   /** \brief Parameters for Task 3 */
   /** \brief The octomap point cloud frame id. */
@@ -253,7 +252,8 @@ public:
   bool 
   task_1(geometry_msgs::Point object, 
          geometry_msgs::Point target, 
-         std::string shape_type);
+         std::string shape_type,
+         double width = 0.04);
 
   bool
   moveArm(geometry_msgs::Pose target_pose);

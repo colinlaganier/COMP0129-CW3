@@ -56,7 +56,6 @@ cw3::cw3(ros::NodeHandle nh):
 void cw3::load_config()
 {
   // Define constants identified experimentally 
-  // Issues with loading from config file (yaml, xml)
 
   // Pick and place constants
   inspection_distance_ = 0.6;
@@ -64,8 +63,6 @@ void cw3::load_config()
   angle_offset_ = 3.14159 / 4.0;
 
   drop_height_ = 0.30;
-
-
   cross_pick_grid_y_offset_ = 0;
   cross_pick_grid_x_offset_ = 2;
   naught_pick_grid_x_offset_ = 2;
@@ -81,14 +78,8 @@ void cw3::load_config()
   g_pt_thrs_max = 0.5; // PassThrough max thres: Better in a config file
   g_k_nn = 50; // Normals nn size: Better in a config file
 
-
   // Positions of the gripper for the different tasks 
-  //basket_height_ = 0.40;
   camera_offset_ = 0.0425;
-  // Pointcloud cutoff threshold for object identification
-  //cube_basket_cutoff_ = 1000;
-  // Precision of the estimated object position
-  //position_precision_ = 1000.0;
 
 }
 
@@ -155,10 +146,7 @@ cw3::pointCloudCallback
   pcl_conversions::toPCL (*cloud_input_msg, g_pcl_pc);
   pcl::fromPCLPointCloud2 (g_pcl_pc, *g_cloud_ptr);
 
-   
-  //pcl::PointCloud<PointT> cloud = *cloud.get();
-
-  // Will have to create a new publisher for octomap
+  // Apply task specific filter
   if (task_1_filter)
   {
     nought_filter.setMin(Eigen::Vector4f(-0.13, 0.05, 0.45, 1.0));
@@ -273,7 +261,11 @@ cw3::octomapCallback
 ////////////////////////////////////////////////////////////////////////////////
 
 bool 
-cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::string shape_type){
+cw3::task_1(geometry_msgs::Point object, 
+            geometry_msgs::Point target, 
+            std::string shape_type, 
+            double width)
+{
 
   task_1_filter = true;
 
@@ -322,17 +314,16 @@ cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::strin
 
   ROS_INFO("CALCULATED ANGLE: (%f)", angle * (180/3.1415));
 
-  double x = 0.04; // Shape size
   // Positional offsets for pick and place
   if(shape_type == "cross"){
-    object.x += x * cos(angle);
-    object.y += x * sin(angle);
-    target.x += x;
+    object.x += width * cos(angle);
+    object.y += width * sin(angle);
+    target.x += width;
     
   }else{
-    object.x += 2 * x * sin(angle);
-    object.y += 2 * x * cos(angle);
-    target.y += 2 * x;
+    object.x += 2 * width * sin(angle);
+    object.y += 2 * width * cos(angle);
+    target.y += 2 * width;
 
   }
 
@@ -432,7 +423,9 @@ cw3::moveGripper(float width)
 }
 
 bool
-cw3::pickAndPlace(geometry_msgs::Point objectPoint, geometry_msgs::Point objectGoal,double rotation)
+cw3::pickAndPlace(geometry_msgs::Point objectPoint, 
+                  geometry_msgs::Point objectGoal,
+                  double rotation)
 {
 
   // Generate Picking Pose:
@@ -583,7 +576,13 @@ cw3::task_3()
     // Round to 3 decimal places
     centroid_position.x = std::round(centroid[0] * position_precision_) / position_precision_;
     centroid_position.y = std::round(centroid[1] * position_precision_) / position_precision_;
-    centroid_position.z = std::round(centroid[2] * position_precision_) / position_precision_;
+    centroid_position.z = 0;
+
+    // Ignore the centroid if it is at the origin
+    if (centroid_position.x < 0.1 && centroid_position.x > -0.1 && centroid_position.y < 0.1 && centroid_position.y > -0.1)
+    {
+      continue;
+    }
 
     ROS_INFO("Object centroid: (%f, %f, %f)", centroid_position.x, centroid_position.y, centroid_position.z);
 
@@ -598,7 +597,9 @@ cw3::task_3()
     }
     else
     {
-      // double width = get_cluster_width(cluster);
+      // Compute the width for pick and place
+      double width = getClusterWidth(cluster)/5.0;
+
       // Add the centroid position to the vector
       object_positions.push_back(centroid_position);
     }
@@ -643,20 +644,25 @@ cw3::task_3()
   if (cross_positions.size() > nought_positions.size())
   {
     geometry_msgs::Point target = cross_positions.back();
-    // bool success = task_1(target, basket_position, "cross");
+    bool success = task_1(target, basket_position, "cross");
 
+    ROS_INFO("/////////////////////////////////////////////////////////////////////");
     ROS_INFO_STREAM("Number of objects: " << cross_positions.size() + nought_positions.size());
     ROS_INFO_STREAM("Number of crosses: " << cross_positions.size());
+    ROS_INFO("/////////////////////////////////////////////////////////////////////");
+
 
     return std::make_tuple(cross_positions.size() + nought_positions.size(), cross_positions.size());
   }
   else
   {
     geometry_msgs::Point target = nought_positions.back();
-    // bool success = task_1(target, basket_position, "nought");
+    bool success = task_1(target, basket_position, "nought");
 
+    ROS_INFO("/////////////////////////////////////////////////////////////////////");
     ROS_INFO_STREAM("Number of objects: " << cross_positions.size() + nought_positions.size());
     ROS_INFO_STREAM("Number of noughts: " << nought_positions.size());
+    ROS_INFO("/////////////////////////////////////////////////////////////////////");
 
     return std::make_tuple(cross_positions.size() + nought_positions.size(), nought_positions.size());
   }
