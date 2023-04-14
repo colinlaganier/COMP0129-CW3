@@ -366,7 +366,7 @@ cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::strin
   // Minimise rotation to +- 45 degrees
   if (angle > 3.1415/4){
     angle -= 3.14159/2;
-  } else if (angle < 3.1415/4){
+  } else if (angle < -3.1415/4){
     angle += 3.14159/2;
   }
 
@@ -376,14 +376,14 @@ cw3::task_1(geometry_msgs::Point object, geometry_msgs::Point target, std::strin
   // Positional offsets for pick and place
   if(shape_type == "cross"){
     object.x += x * cos(angle);
-    target.x += x * cos(angle);
     object.y += x * sin(angle);
-    target.y += x * sin(angle);
+    target.x += x;
+    
   }else{
     object.x += 2 * x * sin(angle);
-    target.x += 2 * x * sin(angle);
     object.y += 2 * x * cos(angle);
-    target.y += 2 *x * cos(angle);
+    target.y += 2 * x;
+
   }
 
   success *= pickAndPlace(object,target, -angle);
@@ -485,13 +485,13 @@ cw3::pickAndPlace(geometry_msgs::Point objectPoint, geometry_msgs::Point objectG
 
   // Generate Picking Pose:
   geometry_msgs::Pose grasp_pose = point2Pose(objectPoint, rotation);
-  grasp_pose.position.z += 0.15; //align shape with gripper
+  grasp_pose.position.z += 0.14; //align shape with gripper
   // Aproach and Takeaway:
   geometry_msgs::Pose offset_pose = grasp_pose;
   offset_pose.position.z += 0.125;
   // Releasing Object:
   geometry_msgs::Pose release_pose = point2Pose(objectGoal);
-  release_pose.position.z += 0.25; // Position gripper above basket
+  release_pose.position.z += 0.35; // Position gripper above basket
 
   //Perform Pick
   bool success = true;
@@ -502,13 +502,15 @@ cw3::pickAndPlace(geometry_msgs::Point objectPoint, geometry_msgs::Point objectG
   success *= moveGripper(gripper_closed_);
   // Takeaway
   success *= moveArm(offset_pose);
-
-  /**
+  offset_pose.position.z += 0.125;
+  success *= moveArm(offset_pose);
   // Place
   success *= moveArm(release_pose);
+  release_pose.position.z -= 0.15;
+  success *= moveArm(release_pose);
+
   // Open gripper
   success *= moveGripper(gripper_open_);
-  */
   
   return true;
 }
