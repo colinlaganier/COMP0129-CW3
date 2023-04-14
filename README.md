@@ -33,7 +33,7 @@ The specific tasks should be launched from a separate, sourced terminal.
 
 ![Task_1](figures/task_1.png)
 
-
+Given the position of basket and shape. A point cloud of the object is captured, major axis is extracted to calculate orientation of object. 
 
 ```console
 foo@bar:~catkin_ws$ rosservice call /task 1
@@ -43,7 +43,7 @@ foo@bar:~catkin_ws$ rosservice call /task 1
 
 ![Task_2](figures/task_2.png)
 
-
+Given two reference shapes and a mystery shape, manipulator evaluates scene and identifies what reference shape matches the mystery shape.
 
 ```console
 foo@bar:~catkin_ws$ rosservice call /task 2
@@ -61,6 +61,7 @@ The identified shapes are outputted in the ROS console as such:
 
 ![Task_3](figures/task_3.png)
 
+A continuous point cloud is captured to reconstruct scene. Shapes are then clustered and identified.
 
 ```console
 foo@bar:~catkin_ws$ rosservice call /task 3
