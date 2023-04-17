@@ -22,6 +22,7 @@ solution is contained within the cw3_team_<your_team_number> package */
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/filters/crop_box.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/features/normal_3d.h>
 #include <pcl/ModelCoefficients.h>
@@ -65,7 +66,10 @@ public:
   double drop_height_;
 
   /** \brief Parameters for Task 1 */
-  /** \brief Parameters for Task 2 */
+  /** \brief Crop box filter. */
+  pcl::CropBox<pcl::PointXYZRGBA> nought_filter;
+  /** \brief Pass Through filter. */
+  pcl::PassThrough<pcl::PointXYZRGBA> cross_filter;
 
   /** \brief Parameters for Task 3 */
   /** \brief The octomap point cloud frame id. */
@@ -84,6 +88,8 @@ public:
   ros::Publisher g_pub_cloud_octomap;
   /** \brief ROS octomap subscriber. */
   ros::Subscriber octomap_pointcloud_sub_;
+  /** \brief Task 3 filter flag. */
+  bool task_1_filter = false;
   /** \brief Task 3 filter flag. */
   bool task_3_filter = false;
   /** \brief Octomap point cloud filter. */
@@ -246,7 +252,8 @@ public:
   bool 
   task_1(geometry_msgs::Point object, 
          geometry_msgs::Point target, 
-         std::string shape_type);
+         std::string shape_type,
+         double width = 0.04);
 
   bool
   moveArm(geometry_msgs::Pose target_pose);
@@ -320,7 +327,7 @@ public:
   /** \brief Function to cluster the octomap pointcloud into individual
     *        pointclouds for each object
     * 
-    * \input[in] PointXYZ pointcloud 
+    * \input[in] cloud PointXYZ pointcloud 
     * 
     * \return vector of PointXYZ pointclouds for each object
     */
@@ -333,6 +340,16 @@ public:
     */
   Object
   identifyObject();
+
+  /** \brief Function to get the width of a cluster.
+    * 
+    * \input[in] cluster pointcloud of cluster
+    * 
+    * \return double width of cluster
+    */
+  double 
+  getClusterWidth(pcl::PointCloud<pcl::PointXYZ>::Ptr cluster);
+
 };
 
 #endif // end of include guard for cw3_CLASS_H_
