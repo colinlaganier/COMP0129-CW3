@@ -1,9 +1,15 @@
-/* feel free to change any part of this file, or delete this file. In general,
-you can do whatever you want with this template code, including deleting it all
-and starting from scratch. The only requirment is to make sure your entire 
-solution is contained within the cw3_team_<your_team_number> package */
+/**
+  **********************************************************************************
+  * @file     cw3_class.h
+  * @author   Colin Laganier, Jacob Nash, Carl Parsons
+  * @date     2023-04-14
+  * @brief   This file contains the header information for the cw3 class.
+  *          The goal of the class is to enable the robot to perform the tasks 
+  *          in ROS using PCL and octomap.
+  **********************************************************************************
+  * @attention  Requires ros, moveit, pcl, octomap, tf2 to be installed.
+  */
 
-// include guards, prevent .h file being defined multiple times (linker error)
 #ifndef CW3_CLASS_H_
 #define CW3_CLASS_H_
 
@@ -37,6 +43,7 @@ solution is contained within the cw3_team_<your_team_number> package */
 #include <tf/transform_listener.h>
 #include <pcl/features/moment_of_inertia_estimation.h>
 
+// Set default pointcloud types
 typedef pcl::PointXYZRGBA PointT;
 typedef pcl::PointCloud<PointT> PointC;
 typedef PointC::Ptr PointCPtr;
@@ -45,10 +52,6 @@ typedef PointC::Ptr PointCPtr;
 #include "cw3_world_spawner/Task1Service.h"
 #include "cw3_world_spawner/Task2Service.h"
 #include "cw3_world_spawner/Task3Service.h"
-
-// // include any services created in this package
-// #include "cw3_team_x/example.h"
-
 
 class cw3
 {
@@ -64,6 +67,7 @@ public:
   double naught_pick_grid_x_offset_;
   double naught_pick_grid_y_offset_;
   double drop_height_;
+  double pi_ = 3.14159;
 
   /** \brief Parameters for Task 1 */
   /** \brief Crop box filter. */
@@ -158,46 +162,6 @@ public:
   
   /** \brief Pass Through min and max threshold sizes. */
   double g_pt_thrs_min, g_pt_thrs_max;
-  
-  /** \brief KDTree for nearest neighborhood search. */
-  pcl::search::KdTree<PointT>::Ptr g_tree_ptr;
-  
-  /** \brief Normal estimation. */
-  pcl::NormalEstimation<PointT, pcl::Normal> g_ne;
-  
-  /** \brief Cloud of normals. */
-  pcl::PointCloud<pcl::Normal>::Ptr g_cloud_normals, g_cloud_normals2;
-  
-  /** \brief Nearest neighborhooh size for normal estimation. */
-  double g_k_nn;
-  
-  /** \brief SAC segmentation. */
-  pcl::SACSegmentationFromNormals<PointT, pcl::Normal> g_seg; 
-  
-  /** \brief Extract point cloud indices. */
-  pcl::ExtractIndices<PointT> g_extract_pc;
-
-  /** \brief Extract point cloud normal indices. */
-  pcl::ExtractIndices<pcl::Normal> g_extract_normals;
-  
-  /** \brief Point indices for plane. */
-  pcl::PointIndices::Ptr g_inliers_plane;
-    
-  /** \brief Point indices for cylinder. */
-  pcl::PointIndices::Ptr g_inliers_cylinder;
-  
-  /** \brief Model coefficients for the plane segmentation. */
-  pcl::ModelCoefficients::Ptr g_coeff_plane;
-  
-  /** \brief Model coefficients for the culinder segmentation. */
-  pcl::ModelCoefficients::Ptr g_coeff_cylinder;
-
-    /** \brief Point cloud to hold plane and cylinder points. */
-  PointCPtr g_cloud_plane, g_cloud_cylinder;
-
-  pcl::PassThrough<PointT> pass;
-
-  pcl::PointCloud<PointT>::Ptr cloud_filtered;
 
   ////////////////////////////////////////////////////////////////////////////////
   // Class member functions
@@ -249,20 +213,28 @@ public:
   // Task 1 functions
   ////////////////////////////////////////////////////////////////////////////////
 
+  /** \brief Task 1 function Pick and place object from a current position
+   * to a goal using the gripper. 
+   *
+   * \input[in] object location of object to pick object
+   * \input[in] target location to place object in basket
+   * \input[in] shape_type shape of given object
+   * \input[in] width dimension of the object to pick
+   *
+   * \return true if object is picked and placed
+  */
   bool 
   task_1(geometry_msgs::Point object, 
          geometry_msgs::Point target, 
          std::string shape_type,
          double width = 0.04);
 
-  bool
-  moveArm(geometry_msgs::Pose target_pose);
-
-  /** \brief Task 1 function, pick and place an object from a target
+  /** \brief Function to perform pick and place an object from a target
    * to a goal using the gripper. 
    *
    * \input[in] object_loc location of object to pick cube
    * \input[in] goal_loc location to place cube in basket
+   * \input[in] rotation angle of the object to grab
    *
    * \return true if object is picked and placed
   */
@@ -270,6 +242,24 @@ public:
   pickAndPlace(geometry_msgs::Point objectPoint, 
                geometry_msgs::Point objectGoal, 
                double rotation = 0.0);
+
+  /** \brief MoveIt function for moving the move_group to the target position.
+    *
+    * \input[in] target_pose pose to move the arm to
+    *
+    * \return true if moved to target position 
+    */
+  bool
+  moveArm(geometry_msgs::Pose target_pose);
+
+  /** \brief MoveIt function for moving the gripper fingers to a new position. 
+    *
+    * \input[in] width desired gripper finger width
+    *
+    * \return true if gripper fingers are moved to the new position
+    */
+  bool
+  moveGripper(float width);
 
   /** \brief Function to publish the filtered point cloud message.
     *
@@ -279,23 +269,36 @@ public:
   void 
   pubFilteredPCMsg(ros::Publisher & pc_pub, PointC & pc);
 
-
-  bool
-  moveGripper(float width);
-
+  /** \brief Function to convert a geometry_msgs point to a pose.
+    *
+    * \input[in] point point to convert to pose
+    *
+    * \return pose of the point
+    */
   geometry_msgs::Pose
   point2Pose(geometry_msgs::Point point, double rotation = 0.0);
-
-  void
-  segPlane (PointCPtr &in_cloud_ptr);
   
   ////////////////////////////////////////////////////////////////////////////////
   // Task 2 functions
   ////////////////////////////////////////////////////////////////////////////////
 
+  /** \brief Task 2 function to detect shapes at given positions
+    *
+    * \input[in] ref vector of coordinates of objects
+    * \input[in] mystery coordinates of unidentified shape
+    *
+    * \return shape of mystery object (0 or 1)
+    */
   int64_t
   task_2(std::vector<geometry_msgs::PointStamped> ref, geometry_msgs::PointStamped mystery);
 
+  /** \brief Function to identify the shape of an object using
+    * the current camera feed and a given position.
+    *
+    * \input[in] point location of the object of interest
+    *
+    * \return string of the shape
+    */
   std::string
   survey(geometry_msgs::Point point);
 

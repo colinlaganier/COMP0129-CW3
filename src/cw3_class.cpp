@@ -24,7 +24,6 @@ cw3::cw3(ros::NodeHandle nh):
   g_octomap_filtered (new pcl::PointCloud<pcl::PointXYZ>) // filtered octomap point cloud
 {
   /* class constructor */
-
   nh_ = nh;
 
   // advertise solutions for coursework tasks
@@ -60,7 +59,7 @@ void cw3::load_config()
   // Pick and place constants
   inspection_distance_ = 0.6;
   // Angle offset to align gripper with cube
-  angle_offset_ = 3.14159 / 4.0;
+  angle_offset_ = pi_ / 4.0;
 
   drop_height_ = 0.30;
   cross_pick_grid_y_offset_ = 0;
@@ -300,19 +299,19 @@ cw3::task_1(geometry_msgs::Point object,
   angle = atan2(det,dot);
 
   // Remove obtuse angles
-  if (angle > 3.1415/2){
-    angle -= 3.14159;
-  } else if (angle < -3.1415/2){
-    angle += 3.14159;
+  if (angle > pi_/2){
+    angle -= pi_;
+  } else if (angle < -pi_/2){
+    angle += pi_;
   }
   // Minimise rotation to +- 45 degrees
-  if (angle > 3.1415/4){
-    angle -= 3.14159/2;
-  } else if (angle < -3.1415/4){
-    angle += 3.14159/2;
+  if (angle > pi_/4){
+    angle -= pi_/2;
+  } else if (angle < -pi_/4){
+    angle += pi_/2;
   }
 
-  ROS_INFO("CALCULATED ANGLE: (%f)", angle * (180/3.1415));
+  ROS_INFO("CALCULATED ANGLE: (%f)", angle * (180/pi_));
 
   // Positional offsets for pick and place
   if(shape_type == "cross"){
